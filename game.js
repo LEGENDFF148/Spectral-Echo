@@ -31,6 +31,8 @@ class SpectralEcho extends Phaser.Scene {
     this.slowMoCooldown = 0
     this.decoy = null
     this.decoyCooldown = 0
+    this.score = 0
+    this.levelStartScore = 0
 
     this.createTextures()
     this.createWorldLayer()
@@ -70,7 +72,6 @@ class SpectralEcho extends Phaser.Scene {
     }
     this.bgGraphics.strokePath()
 
-    // Draw Player Trail
     for (let i = this.playerTrail.length - 1; i >= 0; i--) {
       const t = this.playerTrail[i]
       t.life -= this.physics.world.timeScale
@@ -84,13 +85,11 @@ class SpectralEcho extends Phaser.Scene {
     const levels = []
     for (let i = 0; i < count; i++) {
       const walls = []
-      // perimeter hints
       walls.push({ x: 400, y: 90, w: 700, h: 12 })
       walls.push({ x: 400, y: 510, w: 700, h: 12 })
       walls.push({ x: 90, y: 300, w: 12, h: 460 })
       walls.push({ x: 710, y: 300, w: 12, h: 460 })
 
-      // Maze Generation
       const cols = 6
       const rows = 4
       const cellW = 100
@@ -126,7 +125,6 @@ class SpectralEcho extends Phaser.Scene {
         }
       }
 
-      // Braiding: Remove random walls to create loops and prevent dead ends
       for (let r = 0; r < rows - 1; r++) {
         for (let c = 0; c < cols - 1; c++) {
           if (Math.random() < 0.15) {
@@ -349,6 +347,8 @@ class SpectralEcho extends Phaser.Scene {
   buildLevel(index) {
     this.levelIndex = index
     this.slowMoEndTime = 0
+    this.levelStartTime = this.time.now
+    this.levelStartScore = this.score
     this.physics.world.timeScale = 1.0
     this.createArena()
     this.createEnemies()
@@ -373,6 +373,12 @@ class SpectralEcho extends Phaser.Scene {
       fontSize: 22,
       color: '#ffffff'
     }).setAlpha(0.85).setDepth(20)
+
+    this.scoreText = this.add.text(780, 16, 'SCORE: 0', {
+      fontFamily: 'Orbitron, Rajdhani, monospace',
+      fontSize: 22,
+      color: '#ffffff'
+    }).setOrigin(1, 0).setAlpha(0.85).setDepth(20)
 
     this.winText = this.add.text(400, 260, 'VOID ESCAPED', {
       fontFamily: 'Orbitron, Rajdhani, monospace',
@@ -478,6 +484,7 @@ class SpectralEcho extends Phaser.Scene {
     this.audio.ensure()
     this.audio.startMusic()
     this.startContainer.setVisible(false)
+    this.levelStartTime = this.time.now
     this.menuContainer.setVisible(true)
     this.physics.world.resume()
   }
@@ -538,6 +545,8 @@ class SpectralEcho extends Phaser.Scene {
     this.playerEnemiesOverlap = this.physics.add.overlap(this.player, this.enemies, () => {
       this.audio.playFail()
       this.cameras.main.shake(300, 0.02)
+      this.score = this.levelStartScore
+      this.scoreText.setText('SCORE: ' + this.score)
       this.buildLevel(this.levelIndex)
       this.createCollisions()
     })
@@ -547,6 +556,8 @@ class SpectralEcho extends Phaser.Scene {
         key.setVisible(false)
         if (key.glow) key.glow.setVisible(false)
         this.keysCollected++
+        this.score += 100
+        this.scoreText.setText('SCORE: ' + this.score)
         this.audio.tone(1200, 0.12, 'square', 0.18)
       }
     })
@@ -557,6 +568,10 @@ class SpectralEcho extends Phaser.Scene {
         this.tweens.add({ targets: this.levelCompleteText, alpha: { from: 1, to: 0 }, duration: 700, ease: 'Quad.easeOut' })
         return
       }
+      const timeTaken = (this.time.now - this.levelStartTime) / 1000
+      const timeBonus = Math.max(0, Math.floor((60 - timeTaken) * 10))
+      this.score += 200 + timeBonus
+      this.scoreText.setText('SCORE: ' + this.score)
       if (this.levelIndex + 1 < this.levels.length) {
         this.levelCompleteText.setAlpha(1)
         this.tweens.add({ targets: this.levelCompleteText, alpha: { from: 1, to: 0 }, duration: 800, ease: 'Quad.easeOut' })
@@ -565,11 +580,14 @@ class SpectralEcho extends Phaser.Scene {
         this.audio.playGoal()
       } else {
         this.physics.pause()
+        this.winText.setText('VOID ESCAPED\nSCORE: ' + this.score)
         this.winText.setAlpha(1)
         this.restartText.setAlpha(0.9)
         this.audio.playGoal()
         this.input.once('pointerdown', () => {
           this.physics.resume()
+          this.score = 0
+          this.scoreText.setText('SCORE: 0')
           this.buildLevel(0)
           this.player.setPosition(this.levels[0].start.x, this.levels[0].start.y)
           this.player.setVelocity(0, 0)
@@ -732,7 +750,6 @@ class SpectralEcho extends Phaser.Scene {
       if (!e) return
       if (e.glow) e.glow.setPosition(e.x, e.y)
       
-      // Line of Sight Check
       const dist = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y)
       const detectionRange = isStealth ? 70 : 170
       if (dist < detectionRange) {
@@ -825,7 +842,6 @@ class SpectralEcho extends Phaser.Scene {
     this.maskGraphics.fillStyle(0xffffff)
     this.maskGraphics.fillCircle(this.player.x, this.player.y, radius)
 
-    // Blend player light with red based on danger
     const baseColor = this.lightColors[this.currentLightColor]
     const dangerColor = Phaser.Display.Color.Interpolate.ColorWithColor(
       Phaser.Display.Color.IntegerToColor(baseColor),
@@ -954,15 +970,13 @@ class SynthAudio {
     this.ensure()
     this.musicPlaying = true
     let step = 0
-    const sequence = [196, 233, 261, 311, 261, 233] // Cm scale ish
+    const sequence = [196, 233, 261, 311, 261, 233]
     this.musicTimer = setInterval(() => {
       if (this.muted) return
-      // Bass drone
       if (step % 4 === 0) {
         this.tone(65, 3.0, 'triangle', 0.08)
         this.tone(130, 3.0, 'sine', 0.04)
       }
-      // Melody
       const note = sequence[step % sequence.length]
       this.tone(note, 0.8, 'sine', 0.05)
       if (Math.random() > 0.6) this.tone(note * 1.5, 1.0, 'sine', 0.03)
@@ -984,7 +998,6 @@ class SynthAudio {
     intensity = Math.max(0.1, Math.min(1, intensity))
     const base = 120 + 220 * intensity
     const dur = 0.06 + 0.14 * intensity
-    // soft kick: short sine thump + quiet triangle click
     this.tone(base, dur, 'sine', 0.12 * intensity)
     setTimeout(() => this.tone(base * 2.2, 0.04, 'triangle', 0.06 * intensity), 10)
   }
