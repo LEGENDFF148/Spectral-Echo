@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spectral Echo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&display=swap');
+    html, body { height: 100%; font-family: 'Orbitron', 'Rajdhani', monospace; }
+    body {
+      margin: 0; display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(60% 60% at 50% 50%, #0a0f12 0%, #030506 55%, #000 100%),
+        #000;
+    }
+    #game { width: 800px; height: 600px; }
+    canvas {
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 2px rgba(0,255,255,0.08),
+        0 12px 40px rgba(0,255,255,0.12),
+        inset 0 0 40px rgba(0,255,255,0.05);
+    }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script>
+    (function () {
+      function load(src, onload, onerror) {
+        var s = document.createElement('script')
+        s.src = src
+        s.defer = true
+        s.onload = onload
+        s.onerror = onerror || function () {}
+        document.body.appendChild(s)
+      }
+      load('https://cdn.jsdelivr.net/npm/phaser@3.80.0/dist/phaser.js', function () {
+        load('game.js')
+      }, function () {
+        load('https://unpkg.com/phaser@3.80.0/dist/phaser.js', function () {
+          load('game.js')
+        }, function () {
+          var msg = document.createElement('div')
+          msg.style.position = 'absolute'
+          msg.style.top = '16px'
+          msg.style.left = '16px'
+          msg.style.color = '#fff'
+          msg.style.fontFamily = 'monospace'
+          msg.textContent = 'Phaser failed to load. Check network/CDN.'
+          document.body.appendChild(msg)
+        })
+      })
+    })()
+  </script>
+</body>
+</html>
